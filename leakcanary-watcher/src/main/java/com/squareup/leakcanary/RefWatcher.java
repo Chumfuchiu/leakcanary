@@ -123,36 +123,43 @@ public final class RefWatcher {
   Retryable.Result ensureGone(final KeyedWeakReference reference, final long watchStartNanoTime) {
     long gcStartNanoTime = System.nanoTime();
     long watchDurationMs = NANOSECONDS.toMillis(gcStartNanoTime - watchStartNanoTime);
-
+    //1.利用WeakReference的gc特性，gc发生时，若watch的对象将要被gc回收掉，那么会将其key从retainedKeys中移除。
     removeWeaklyReachableReferences();
 
+    //2.在Android平台下，如果是debug状态，那么会进行retry，不会执行步骤3.意味着debug下不会进行内存泄漏监测。
     if (debuggerControl.isDebuggerAttached()) {
       // The debugger can create false leaks.
       return RETRY;
     }
+    //3.判断一个引用是否被回收(retainedKeys是否包含该reference的key，若包含则返回false，表示没有被gc)
+    // 若已经被gc掉，说明该对象在这次gc中已经被回收掉，不会发生内存泄漏。
     if (gone(reference)) {
       return DONE;
     }
+    //4.建议jvm进行gc，并在100m后期望执行finalize方法。
     gcTrigger.runGc();
+    //5.第二次gc后，再次进行将已被回收的对象的key从retainedKey中移除。
     removeWeaklyReachableReferences();
+    //6.如果第二次gc后该对象还没有被回收掉，那么就断定为内存泄漏。
     if (!gone(reference)) {
       long startDumpHeap = System.nanoTime();
       long gcDurationMs = NANOSECONDS.toMillis(startDumpHeap - gcStartNanoTime);
-
+      //7.调用Debug.dumpHprofData方法将堆快照写入文件(生成UUID_pending.hprof文件)，\
+      // heapDumpFile!=RETRY_LATER表示成功。
       File heapDumpFile = heapDumper.dumpHeap();
       if (heapDumpFile == RETRY_LATER) {
         // Could not dump the heap.
         return RETRY;
       }
       long heapDumpDurationMs = NANOSECONDS.toMillis(System.nanoTime() - startDumpHeap);
-
+      //8.构建堆转储快照对象HeapDump。HeapDump持有了一切内存泄漏相关的信息。
       HeapDump heapDump = heapDumpBuilder.heapDumpFile(heapDumpFile).referenceKey(reference.key)
           .referenceName(reference.name)
           .watchDurationMs(watchDurationMs)
           .gcDurationMs(gcDurationMs)
           .heapDumpDurationMs(heapDumpDurationMs)
           .build();
-
+      //9.将HeapDump对象交付给ServiceHeapDumpListener进行分析。
       heapdumpListener.analyze(heapDump);
     }
     return DONE;

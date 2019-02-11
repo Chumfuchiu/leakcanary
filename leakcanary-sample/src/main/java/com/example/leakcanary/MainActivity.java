@@ -21,6 +21,9 @@ import android.os.Bundle;
 import android.os.SystemClock;
 import android.view.View;
 
+/**
+ * 演示了匿名内部类会持有外部类引用导致的内存泄漏的例子。
+ */
 public class MainActivity extends Activity {
 
   private HttpRequestHelper httpRequestHelper;

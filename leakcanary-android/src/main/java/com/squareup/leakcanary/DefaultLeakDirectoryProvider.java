@@ -68,6 +68,7 @@ public final class DefaultLeakDirectoryProvider implements LeakDirectoryProvider
   }
 
   @Override public @NonNull List<File> listFiles(@NonNull FilenameFilter filter) {
+    //1.存储权限检测。
     if (!hasStoragePermission()) {
       requestWritePermissionNotification();
     }
@@ -86,12 +87,16 @@ public final class DefaultLeakDirectoryProvider implements LeakDirectoryProvider
   }
 
   @Override public @Nullable File newHeapDumpFile() {
+    //1.遍历externalStorageDirectory和appStorageDirectory目录，获取以_pending.hprof结尾的文件。
     List<File> pendingHeapDumps = listFiles(new FilenameFilter() {
       @Override public boolean accept(File dir, String filename) {
         return filename.endsWith(PENDING_HEAPDUMP_SUFFIX);
       }
     });
 
+    //2.如果最近创建了一个新的堆转储文件，但尚未处理，则跳过。
+    //否则，我们继续前进并假定分析器进程崩溃。文件将
+    //最后通过堆转储文件旋转移除。
     // If a new heap dump file has been created recently and hasn't been processed yet, we skip.
     // Otherwise we move forward and assume that the analyzer process crashes. The file will
     // eventually be removed with heap dump file rotation.
@@ -101,10 +106,11 @@ public final class DefaultLeakDirectoryProvider implements LeakDirectoryProvider
         return RETRY_LATER;
       }
     }
-
+    //3.移除旧的堆转储文件
     cleanupOldHeapDumps();
 
     File storageDirectory = externalStorageDirectory();
+    //4.TODO
     if (!directoryWritableAfterMkdirs(storageDirectory)) {
       if (!hasStoragePermission()) {
         CanaryLog.d("WRITE_EXTERNAL_STORAGE permission not granted");
@@ -128,6 +134,7 @@ public final class DefaultLeakDirectoryProvider implements LeakDirectoryProvider
     }
     // If two processes from the same app get to this step at the same time, they could both
     // create a heap dump. This is an edge case we ignore.
+    //5.返回一个以UUID_pending.hprof的文件。
     return new File(storageDirectory, UUID.randomUUID().toString() + PENDING_HEAPDUMP_SUFFIX);
   }
 

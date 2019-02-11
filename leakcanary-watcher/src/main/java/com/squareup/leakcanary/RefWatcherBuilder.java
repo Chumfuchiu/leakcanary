@@ -72,7 +72,21 @@ public class RefWatcherBuilder<T extends RefWatcherBuilder<T>> {
     return self();
   }
 
-  /** Creates a {@link RefWatcher}. */
+  /** Creates a {@link RefWatcher}.
+   * RefWatcher由六个部分组成：watchExecutor,debuggerControl,gcTrigger,heapDumper,heapDumpListener,
+   * 以及heapDumpBuilder。
+   *
+   * watchExecutor：线程控制器，在 onDestroy() 之后并且主线程空闲时执行内存泄漏检测。
+   * debuggerControl：判断是否处于调试模式，调试模式中不会进行内存泄漏检测。
+   * gcTrigger：用于 GC，watchExecutor 首次检测到可能的内存泄漏，会主动进行 GC，GC 之后会再检测一次，
+   *            仍然泄漏的判定为内存泄漏，最后根据heapDump信息生成相应的泄漏引用链。
+   * heapDumper：堆信息转储者，dump 内存泄漏处的 heap 信息到 hprof 文件。
+   * heapDumpListener：转储堆信息到hprof文件，并在解析完 hprof 文件后进行回调，最后通知
+   *                  DisplayLeakService 弹出泄漏提醒。
+   * heapDumpBuilder.excludedRefs：记录可以被忽略的泄漏路径。
+   * heapDumpBuilder.reachabilityInspectorClasses：用于要进行可达性检测的类列表。
+   *
+   * */
   public final RefWatcher build() {
     if (isDisabled()) {
       return RefWatcher.DISABLED;

@@ -68,6 +68,7 @@ public final class AndroidHeapDumper implements HeapDumper {
   @SuppressWarnings("ReferenceEquality") // Explicitly checking for named null.
   @Override @Nullable
   public File dumpHeap() {
+    //1.DefaultLeakDirectoryProvider.newHeapDumpFile()：移除旧的堆转储文件，返回新的堆转储文件。
     File heapDumpFile = leakDirectoryProvider.newHeapDumpFile();
 
     if (heapDumpFile == RETRY_LATER) {
@@ -92,6 +93,7 @@ public final class AndroidHeapDumper implements HeapDumper {
 
     Toast toast = waitingForToast.get();
     try {
+      //2.将堆快照写入heapDumpFile并返回。
       Debug.dumpHprofData(heapDumpFile.getAbsolutePath());
       cancelToast(toast);
       notificationManager.cancel(notificationId);

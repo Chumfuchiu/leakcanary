@@ -83,15 +83,27 @@ public final class AndroidRefWatcherBuilder extends RefWatcherBuilder<AndroidRef
    * @throws UnsupportedOperationException if called more than once per Android process.
    */
   public @NonNull RefWatcher buildAndInstall() {
+    //1.判断LeakCanaryInternals.installedRefWatcher是否不为null，是则抛出异常，installedRefWatcher
+    // 仅仅在buildAndInstall方法中被赋值，这就意味着buildAndInstall仅能调用一次，installedRefWatcher
+    // 是全局唯一的。
     if (LeakCanaryInternals.installedRefWatcher != null) {
       throw new UnsupportedOperationException("buildAndInstall() should only be called once.");
     }
+    //2.构建一个RefWatcher对象。
     RefWatcher refWatcher = build();
+
     if (refWatcher != DISABLED) {
+      //3.利用PM.setComponentEnabledSetting &&AsyncTask 进行阻塞式地显示DisplayLeakActivity
       LeakCanaryInternals.setEnabledAsync(context, DisplayLeakActivity.class, true);
+      //4.注册一个生命周期回调监听，在onActivityDestroyed方法里调用refWatcher.watch(activity)方法
       if (watchActivities) {
         ActivityRefWatcher.install(context, refWatcher);
       }
+      //5.注册一个生命周期回调监听，在onActivityCreated方法里调用refWatcher.watchFragments(activity)
+      // 方法。watchFragments(activity)方法内部对Android版本做了区别，在Android O以上支持fragment的全
+      // 面监测，而 O 以下仅仅支持FragmentActivity的监测，监测的方式是通过SupportFragmentManager.
+      // registerFragmentLifecycleCallbacks方法注册一个fragment的生命周期回调，在onFragmentViewDestroyed
+      // 和onFragmentDestroyed分别调用refWatcher.watch(view);和refWatcher.watch(fragment);
       if (watchFragments) {
         FragmentRefWatcher.Helper.install(context, refWatcher);
       }

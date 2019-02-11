@@ -38,9 +38,18 @@ public final class LeakCanary {
    * references (on ICS+).
    */
   public static @NonNull RefWatcher install(@NonNull Application application) {
-    return refWatcher(application).listenerServiceClass(DisplayLeakService.class)
-        .excludedRefs(AndroidExcludedRefs.createAppDefaults().build())
-        .buildAndInstall();
+    return refWatcher(application) //1.实例化AndroidRefWatcherBuilder对象。该对象持有context以及一个
+            // HeapDump.Builder。其中HeapDump就是一个保存heap dump信息的数据结构。
+
+            .listenerServiceClass(DisplayLeakService.class)//2.为AndroidRefWatcherBuilder对象设置一个
+            // ServiceHeapDumpListener。ServiceHeapDumpListener用于接受并分析一个HeapDump对象，实际
+            // 执行分析功能的对象是HeapAnalyzerService。而传入的DisplayLeakService仅仅用于展示内存泄
+            // 漏分析的结果。
+
+            .excludedRefs(AndroidExcludedRefs.createAppDefaults().build())//3.为之后分析HeapDump对象
+            // 过滤一些内存泄漏的case。
+
+            .buildAndInstall();//4.
   }
 
   /**
